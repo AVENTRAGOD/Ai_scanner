@@ -17,39 +17,40 @@ export default function Scanner({ onCapture, isScanning }: ScannerProps) {
   const [paperSize, setPaperSize] = useState<"A4" | "A3">("A4");
   const [error, setError] = useState<string | null>(null);
 
-  const stopCamera = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-  }, [stream]);
-
   const startCamera = useCallback(async () => {
     try {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-      const newStream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      const constraints = {
+        video: { 
+          facingMode: facingMode, 
+          width: { ideal: 1920 }, 
+          height: { ideal: 1080 } 
+        },
         audio: false,
-      });
-      setStream(newStream);
+      };
+
+      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
+        // Force play to ensure feed starts
+        videoRef.current.play().catch(e => console.error("Video play error:", e));
       }
+      setStream(newStream);
       setError(null);
     } catch (err) {
       console.error("Camera access error:", err);
-      setError("Camera access denied. Please enable camera permissions.");
+      setError("Camera access denied or not found. Please check permissions.");
     }
-  }, [facingMode, stream]);
+  }, [facingMode]);
 
   useEffect(() => {
-    const initCamera = async () => {
-      await startCamera();
+    startCamera();
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
     };
-    initCamera();
-    return () => stopCamera();
-  }, [startCamera, stopCamera]);
+  }, [facingMode, startCamera]); // Removed stream from dependencies to prevent loop
 
   const toggleCamera = () => {
     setFacingMode(prev => (prev === "user" ? "environment" : "user"));
