@@ -31,24 +31,30 @@ export async function POST(req: Request) {
     // Prepare image for Gemini (remove prefix)
     const base64Data = image.split(",")[1];
 
-    // 1. Call Gemini Vision API with Fallback
+    // 1. Call Gemini Vision API with Fallback and Logging
     let result;
     try {
+      console.log("Attempting Gemini 1.5 Flash...");
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
       result = await model.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
-    } catch (err) {
-      console.warn("Gemini 1.5 Flash failed, trying Pro...", err);
+      console.log("Gemini 1.5 Flash Success!");
+    } catch (err: any) {
+      console.error("Gemini 1.5 Flash Failed:", err.message || err);
       try {
+        console.log("Attempting Gemini 1.5 Pro...");
         const proModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
         result = await proModel.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
-      } catch (proErr) {
-        console.warn("Gemini 1.5 Pro failed, trying Legacy Pro Vision...", proErr);
+        console.log("Gemini 1.5 Pro Success!");
+      } catch (proErr: any) {
+        console.error("Gemini 1.5 Pro Failed:", proErr.message || proErr);
         try {
+          console.log("Attempting Legacy Pro Vision...");
           const legacyModel = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
           result = await legacyModel.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
-        } catch (finalErr) {
-          console.error("ALL MODELS FAILED:", finalErr);
-          throw new Error("Gemini API is not responding. Please check your API key and region.");
+          console.log("Legacy Pro Vision Success!");
+        } catch (finalErr: any) {
+          console.error("ALL MODELS FAILED. Last Error:", finalErr.message || finalErr);
+          throw new Error(`Gemini API Error: ${finalErr.message || "Unknown"}. Check Vercel logs.`);
         }
       }
     }
