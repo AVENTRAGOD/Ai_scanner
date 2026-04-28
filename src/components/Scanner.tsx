@@ -32,7 +32,15 @@ export default function Scanner({ onCapture, isScanning }: ScannerProps) {
         audio: false,
       };
 
-      const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      let newStream;
+      try {
+        newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (firstErr) {
+        console.warn("High-quality camera failed, trying basic mode...", firstErr);
+        // Fallback to simplest constraints
+        newStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      }
+
       console.log("Camera stream started successfully:", newStream.id);
       setStream(newStream);
       
