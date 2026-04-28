@@ -25,31 +25,50 @@ export async function POST(req: Request) {
     const base64Data = image.split(",")[1];
     const buffer = Buffer.from(base64Data, 'base64');
 
-    // 1. Call Gemini Vision API via Global Production Endpoint
-    console.log("Attempting Global Production endpoint...");
-    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    
-    const geminiResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: systemPrompt },
-            { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-          ]
-        }]
-      })
-    });
+    // 1. Call Gemini Vision API with Fallback
+    const modelNames = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro-vision"];
+    let lastError = "";
+    let extractedText = "";
 
-    if (!geminiResponse.ok) {
-      const errorData = await geminiResponse.json();
-      console.error("Gemini API Error:", errorData);
-      throw new Error(`Gemini API Error: ${errorData.error?.message || "Request failed"}`);
+    for (const modelName of modelNames) {
+      try {
+        console.log(`Trying model: ${modelName}`);
+        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
+        
+        const geminiResponse = await fetch(apiUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{
+              parts: [
+                { text: systemPrompt },
+                { inline_data: { mime_type: "image/jpeg", data: base64Data } }
+              ]
+            }]
+          })
+        });
+
+        if (geminiResponse.ok) {
+          const result = await geminiResponse.json();
+          extractedText = result.candidates[0].content.parts[0].text;
+          console.log(`SUCCESS with model: ${modelName}`);
+          break;
+        } else {
+          const err = await geminiResponse.json();
+          lastError = err.error?.message || "Unknown error";
+          console.warn(`Model ${modelName} failed:`, lastError);
+        }
+      } catch (e: any) {
+        lastError = e.message;
+        console.warn(`Fetch failed for ${modelName}:`, lastError);
+      }
     }
 
-    const result = await geminiResponse.json();
-    let text = result.candidates[0].content.parts[0].text;
+    if (!extractedText) {
+      throw new Error(`All Gemini models failed. Last error: ${lastError}. This account may have regional restrictions.`);
+    }
+
+    let text = extractedText;
     text = text.replace(/```json|```/g, "").trim();
     
     const extractedData = JSON.parse(text);
