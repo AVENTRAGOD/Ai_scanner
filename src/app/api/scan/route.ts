@@ -42,36 +42,36 @@ export async function POST(req: Request) {
     // Prepare image for Gemini (remove prefix)
     const base64Data = image.split(",")[1];
 
-    // 1. Call Gemini Vision API with Fallback and Logging
-    let result;
-    try {
-      console.log("Attempting Gemini 1.5 Flash Latest...");
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
-      result = await model.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
-      console.log("Gemini 1.5 Flash Success!");
-    } catch (err: any) {
-      console.error("Gemini 1.5 Flash Failed:", err.message || err);
-      try {
-        console.log("Attempting Gemini 1.5 Pro Latest...");
-        const proModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
-        result = await proModel.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
-        console.log("Gemini 1.5 Pro Success!");
-      } catch (proErr: any) {
-        console.error("Gemini 1.5 Pro Failed:", proErr.message || proErr);
-        try {
-          console.log("Attempting Legacy Pro Vision...");
-          const legacyModel = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
-          result = await legacyModel.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
-          console.log("Legacy Pro Vision Success!");
-        } catch (finalErr: any) {
-          console.error("ALL MODELS FAILED. Last Error:", finalErr.message || finalErr);
-          throw new Error(`Gemini API Error: ${finalErr.message || "Unknown"}. Check Vercel logs.`);
-        }
-      }
+    // 1. Call Gemini Vision API via Direct REST (Universal Fix)
+    console.log("Attempting direct REST call to Gemini 1.5 Flash...");
+    const apiUrl = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    
+    const geminiResponse = await fetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: systemPrompt },
+            {
+              inline_data: {
+                mime_type: "image/jpeg",
+                data: base64Data
+              }
+            }
+          ]
+        }]
+      })
+    });
+
+    if (!geminiResponse.ok) {
+      const errorData = await geminiResponse.json();
+      console.error("Direct API Error:", errorData);
+      throw new Error(`Gemini API Error: ${errorData.error?.message || "Request failed"}`);
     }
 
-    const response = await result.response;
-    let text = response.text();
+    const result = await geminiResponse.json();
+    const text = result.candidates[0].content.parts[0].text;
 
     // Clean Gemini response (strip markdown backticks)
     text = text.replace(/```json|```/g, "").trim();
