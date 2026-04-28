@@ -31,16 +31,32 @@ export async function POST(req: Request) {
     // Prepare image for Gemini (remove prefix)
     const base64Data = image.split(",")[1];
 
-    // 1. Call Gemini Vision API
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          mimeType: "image/jpeg",
-          data: base64Data,
+    // 1. Call Gemini Vision API with Fallback
+    let result;
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      result = await model.generateContent([
+        {
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: base64Data,
+          },
         },
-      },
-      { text: systemPrompt },
-    ]);
+        { text: systemPrompt },
+      ]);
+    } catch (err) {
+      console.warn("Gemini 1.5 Flash failed, trying 1.5 Pro...", err);
+      const proModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      result = await proModel.generateContent([
+        {
+          inlineData: {
+            mimeType: "image/jpeg",
+            data: base64Data,
+          },
+        },
+        { text: systemPrompt },
+      ]);
+    }
 
     const response = await result.response;
     let text = response.text();
