@@ -35,27 +35,22 @@ export async function POST(req: Request) {
     let result;
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
-      result = await model.generateContent([
-        {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: base64Data,
-          },
-        },
-        { text: systemPrompt },
-      ]);
+      result = await model.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
     } catch (err) {
-      console.warn("Gemini 1.5 Flash failed, trying 1.5 Pro...", err);
-      const proModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
-      result = await proModel.generateContent([
-        {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: base64Data,
-          },
-        },
-        { text: systemPrompt },
-      ]);
+      console.warn("Gemini 1.5 Flash failed, trying Pro...", err);
+      try {
+        const proModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+        result = await proModel.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
+      } catch (proErr) {
+        console.warn("Gemini 1.5 Pro failed, trying Legacy Pro Vision...", proErr);
+        try {
+          const legacyModel = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+          result = await legacyModel.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
+        } catch (finalErr) {
+          console.error("ALL MODELS FAILED:", finalErr);
+          throw new Error("Gemini API is not responding. Please check your API key and region.");
+        }
+      }
     }
 
     const response = await result.response;
