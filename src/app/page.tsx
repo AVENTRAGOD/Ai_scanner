@@ -6,10 +6,12 @@ import DataTable from "@/components/DataTable";
 import Link from "next/link";
 import { History, Camera as CameraIcon } from "lucide-react";
 import { Spinner } from "@/components/ui/Spinner";
+import { createWorker } from 'tesseract.js';
 
 export default function Home() {
   const [view, setView] = useState<"camera" | "results">("camera");
   const [isScanning, setIsScanning] = useState(false);
+  const [loadingText, setLoadingText] = useState("Initializing Scanner...");
   const [scanResult, setScanResult] = useState<{
     columns: string[];
     rows: string[][];
@@ -20,24 +22,60 @@ export default function Home() {
   const handleCapture = async (image: string) => {
     setIsScanning(true);
     setError(null);
+    setLoadingText("Extracting text from document...");
+    
     try {
+      // 1. Perform Client-side OCR
+      const worker = await createWorker('eng');
+      const { data: { text } } = await worker.recognize(image);
+      await worker.terminate();
+
+      // 2. Parse the text (Basic Heuristic Parser)
+      const lines = text.split('\n').filter(line => line.trim().length > 0);
+      const columns = ["Description", "Quantity", "Price", "Total"];
+      const rows: string[][] = [];
+
+      for (const line of lines) {
+        const priceMatch = line.match(/(\d{1,3}(?:,\d{3})*(?:\.\d{2}))/);
+        if (priceMatch) {
+          const price = priceMatch[0];
+          const description = line.replace(price, '').trim() || "Item";
+          rows.push([description, "1", price, price]);
+        }
+      }
+
+      if (rows.length === 0 && lines.length > 0) {
+        lines.slice(0, 10).forEach(l => rows.push([l, "", "", ""]));
+      }
+
+      setLoadingText("Saving to cloud history...");
+
+      // 3. Send to API for storage and image upload
       const response = await fetch("/api/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image }),
+        body: JSON.stringify({ 
+          image,
+          columns,
+          rows
+        }),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || "Failed to scan document");
+        throw new Error(data.error || "Failed to save document");
       }
 
-      setScanResult(data);
+      setScanResult({
+        columns,
+        rows,
+        image_url: data.image_url
+      });
       setView("results");
     } catch (err: any) {
       console.error(err);
-      setError(err.message || "An unexpected error occurred");
+      setError(err.message || "An unexpected error occurred during OCR");
     } finally {
       setIsScanning(false);
     }
@@ -79,7 +117,7 @@ export default function Home() {
               <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3">Scan Your Document</h2>
               <p className="text-slate-500 dark:text-slate-400">
                 Align your invoice or receipt within the guide and tap scan. 
-                Gemini AI will automatically extract all line items for you.
+                Our free OCR engine will automatically extract line items for you.
               </p>
             </div>
             
@@ -88,7 +126,7 @@ export default function Home() {
             {isScanning && (
               <div className="flex flex-col items-center gap-3 animate-pulse">
                 <Spinner className="w-10 h-10 border-blue-600" />
-                <p className="text-blue-600 font-bold uppercase tracking-widest text-xs">Processing with Gemini Vision...</p>
+                <p className="text-blue-600 font-bold uppercase tracking-widest text-xs">{loadingText}</p>
               </div>
             )}
           </div>
