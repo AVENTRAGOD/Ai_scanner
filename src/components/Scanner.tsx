@@ -33,28 +33,33 @@ export default function Scanner({ onCapture, isScanning }: ScannerProps) {
       };
 
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log("Camera stream started successfully:", newStream.id);
       setStream(newStream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
+        console.log("Video srcObject assigned.");
       }
       setError(null);
-    } catch (err) {
-      console.error("Camera access error:", err);
-      setError("Could not access camera. Please ensure permissions are granted.");
+    } catch (err: any) {
+      console.error("CRITICAL CAMERA ERROR:", err);
+      setError(`Camera error: ${err.message || "Unknown error"}. Check permissions.`);
     }
   }, [facingMode]);
 
   useEffect(() => {
+    console.log("Scanner mounted/updated. Starting camera...");
     startCamera();
     return () => {
       if (stream) {
+        console.log("Stopping camera tracks...");
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [facingMode]); // Only restart on facingMode change
+  }, [facingMode, startCamera]); 
 
   const toggleCamera = () => {
+    console.log("Toggling camera...");
     setFacingMode(prev => (prev === "user" ? "environment" : "user"));
   };
 
