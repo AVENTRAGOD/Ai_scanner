@@ -19,27 +19,29 @@ export default function Scanner({ onCapture, isScanning }: ScannerProps) {
 
   const startCamera = useCallback(async () => {
     try {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+
       const constraints = {
         video: { 
-          facingMode: facingMode, 
-          width: { ideal: 1920 }, 
-          height: { ideal: 1080 } 
+          facingMode: facingMode,
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
         },
         audio: false,
       };
 
       const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+      setStream(newStream);
       
       if (videoRef.current) {
         videoRef.current.srcObject = newStream;
-        // Force play to ensure feed starts
-        videoRef.current.play().catch(e => console.error("Video play error:", e));
       }
-      setStream(newStream);
       setError(null);
     } catch (err) {
       console.error("Camera access error:", err);
-      setError("Camera access denied or not found. Please check permissions.");
+      setError("Could not access camera. Please ensure permissions are granted.");
     }
   }, [facingMode]);
 
@@ -50,7 +52,7 @@ export default function Scanner({ onCapture, isScanning }: ScannerProps) {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [facingMode, startCamera]); // Removed stream from dependencies to prevent loop
+  }, [facingMode]); // Only restart on facingMode change
 
   const toggleCamera = () => {
     setFacingMode(prev => (prev === "user" ? "environment" : "user"));
@@ -91,6 +93,7 @@ export default function Scanner({ onCapture, isScanning }: ScannerProps) {
             autoPlay
             playsInline
             muted
+            onLoadedMetadata={() => videoRef.current?.play()}
             className="absolute inset-0 w-full h-full object-cover"
           />
 
