@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
 import { formatDate } from "@/lib/utils";
 import { Trash2, ExternalLink, Calendar, Table as TableIcon } from "lucide-react";
@@ -9,7 +9,7 @@ import DataTable from "@/components/DataTable";
 interface ScanRecord {
   id: string;
   columns: string[];
-  rows: any[][];
+  rows: string[][];
   image_url: string;
   created_at: string;
 }
@@ -20,11 +20,7 @@ export default function HistoryList() {
   const [selectedScan, setSelectedScan] = useState<ScanRecord | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    fetchScans();
-  }, []);
-
-  const fetchScans = async () => {
+  const fetchScans = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("scan_results")
@@ -37,7 +33,11 @@ export default function HistoryList() {
       setScans(data || []);
     }
     setLoading(false);
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchScans();
+  }, [fetchScans]);
 
   const deleteScan = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -129,6 +129,7 @@ export default function HistoryList() {
               className="group relative bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden hover:shadow-xl hover:border-blue-200 dark:hover:border-blue-900 transition-all cursor-pointer"
             >
               <div className="aspect-video relative overflow-hidden bg-slate-100 dark:bg-slate-800">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img 
                   src={scan.image_url} 
                   alt="Scan thumbnail" 

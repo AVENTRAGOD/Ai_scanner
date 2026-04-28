@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { Camera, RefreshCw, Scan, Maximize, Minimize } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -17,12 +17,13 @@ export default function Scanner({ onCapture, isScanning }: ScannerProps) {
   const [paperSize, setPaperSize] = useState<"A4" | "A3">("A4");
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    startCamera();
-    return () => stopCamera();
-  }, [facingMode]);
+  const stopCamera = useCallback(() => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+    }
+  }, [stream]);
 
-  const startCamera = async () => {
+  const startCamera = useCallback(async () => {
     try {
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
@@ -40,13 +41,15 @@ export default function Scanner({ onCapture, isScanning }: ScannerProps) {
       console.error("Camera access error:", err);
       setError("Camera access denied. Please enable camera permissions.");
     }
-  };
+  }, [facingMode, stream]);
 
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-    }
-  };
+  useEffect(() => {
+    const initCamera = async () => {
+      await startCamera();
+    };
+    initCamera();
+    return () => stopCamera();
+  }, [startCamera, stopCamera]);
 
   const toggleCamera = () => {
     setFacingMode(prev => (prev === "user" ? "environment" : "user"));

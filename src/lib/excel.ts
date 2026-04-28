@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx';
 
-export function exportToExcel(columns: string[], rows: any[][]) {
+export function exportToExcel(columns: string[], rows: string[][]) {
   const data = [columns, ...rows];
   const ws = XLSX.utils.aoa_to_sheet(data);
   const wb = XLSX.utils.book_new();

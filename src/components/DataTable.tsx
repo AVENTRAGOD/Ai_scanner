@@ -7,14 +7,14 @@ import { exportToExcel } from "@/lib/excel";
 
 interface DataTableProps {
   initialColumns: string[];
-  initialRows: any[][];
+  initialRows: string[][];
   imageUrl?: string;
   onReset: () => void;
 }
 
 export default function DataTable({ initialColumns, initialRows, imageUrl, onReset }: DataTableProps) {
   const [columns, setColumns] = useState<string[]>(initialColumns);
-  const [rows, setRows] = useState<any[][]>(initialRows);
+  const [rows, setRows] = useState<string[][]>(initialRows);
 
   const handleCellChange = (rowIndex: number, colIndex: number, value: string) => {
     const newRows = [...rows];
@@ -41,6 +41,7 @@ export default function DataTable({ initialColumns, initialRows, imageUrl, onRes
         <div className="lg:w-1/3 flex flex-col gap-4">
           <h3 className="text-lg font-bold text-slate-800 dark:text-slate-200">Scanned Document</h3>
           <div className="sticky top-8 rounded-xl overflow-hidden border-2 border-slate-200 dark:border-slate-800 shadow-lg">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={imageUrl} alt="Scan preview" className="w-full h-auto object-contain bg-slate-100" />
           </div>
         </div>

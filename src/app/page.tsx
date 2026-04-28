@@ -12,7 +12,7 @@ export default function Home() {
   const [isScanning, setIsScanning] = useState(false);
   const [scanResult, setScanResult] = useState<{
     columns: string[];
-    rows: any[][];
+    rows: string[][];
     image_url: string;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +107,7 @@ export default function Home() {
   );
 }
 
-function ScanIcon(props: any) {
+function ScanIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}

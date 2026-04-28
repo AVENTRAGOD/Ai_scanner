@@ -33,7 +33,7 @@ export default function HistoryPage() {
   );
 }
 
-function ScanIcon(props: any) {
+function ScanIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}
