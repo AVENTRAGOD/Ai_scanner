@@ -7,7 +7,7 @@ if (!apiKey) {
   console.error("GEMINI_API_KEY is missing from environment variables!");
 }
 const genAI = new GoogleGenerativeAI(apiKey || "");
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
 const systemPrompt = `You are an expert invoice and receipt data extractor. 
 Analyze the document image and extract ALL data fields you can find. 
@@ -45,15 +45,15 @@ export async function POST(req: Request) {
     // 1. Call Gemini Vision API with Fallback and Logging
     let result;
     try {
-      console.log("Attempting Gemini 1.5 Flash...");
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      console.log("Attempting Gemini 1.5 Flash Latest...");
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
       result = await model.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
       console.log("Gemini 1.5 Flash Success!");
     } catch (err: any) {
       console.error("Gemini 1.5 Flash Failed:", err.message || err);
       try {
-        console.log("Attempting Gemini 1.5 Pro...");
-        const proModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+        console.log("Attempting Gemini 1.5 Pro Latest...");
+        const proModel = genAI.getGenerativeModel({ model: "gemini-1.5-pro-latest" });
         result = await proModel.generateContent([{ inlineData: { mimeType: "image/jpeg", data: base64Data } }, { text: systemPrompt }]);
         console.log("Gemini 1.5 Pro Success!");
       } catch (proErr: any) {
