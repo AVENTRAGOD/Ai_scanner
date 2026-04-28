@@ -28,6 +28,17 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No image provided" }, { status: 400 });
     }
 
+    // --- API HEALTH CHECK ---
+    try {
+      console.log("Running API Health Check...");
+      const textModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      await textModel.generateContent("Hi");
+      console.log("API Health Check: SUCCESS!");
+    } catch (healthErr: any) {
+      console.error("API Health Check: FAILED!", healthErr.message);
+    }
+    // ------------------------
+
     // Prepare image for Gemini (remove prefix)
     const base64Data = image.split(",")[1];
 
