@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     }
 
     const result = await geminiResponse.json();
-    const text = result.candidates[0].content.parts[0].text;
+    let text = result.candidates[0].content.parts[0].text;
 
     // Clean Gemini response (strip markdown backticks)
     text = text.replace(/```json|```/g, "").trim();
