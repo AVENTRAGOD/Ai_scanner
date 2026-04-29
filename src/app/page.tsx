@@ -79,7 +79,7 @@ export default function Home() {
               <h2 className="text-3xl font-black text-slate-900 dark:text-white mb-3">Scan Your Document</h2>
               <p className="text-slate-500 dark:text-slate-400">
                 Align your invoice or receipt within the guide and tap scan. 
-                Gemini AI will automatically extract all line items for you.
+                Cloudflare AI will automatically extract all line items for you.
               </p>
             </div>
             
@@ -88,7 +88,7 @@ export default function Home() {
             {isScanning && (
               <div className="flex flex-col items-center gap-3 animate-pulse">
                 <Spinner className="w-10 h-10 border-blue-600" />
-                <p className="text-blue-600 font-bold uppercase tracking-widest text-xs">Processing with Gemini AI...</p>
+                <p className="text-blue-600 font-bold uppercase tracking-widest text-xs">Processing with Cloudflare AI...</p>
               </div>
             )}
           </div>
