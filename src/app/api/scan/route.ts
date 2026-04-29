@@ -1,7 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
-const apiKey = process.env.GEMINI_API_KEY;
+const geminiKey = process.env.GEMINI_API_KEY;
+const openRouterKey = process.env.OPENROUTER_API_KEY;
 
 const systemPrompt = `You are an expert invoice and receipt data extractor. 
 Analyze the document image and extract ALL data fields you can find. 
@@ -25,47 +26,62 @@ export async function POST(req: Request) {
     const base64Data = image.split(",")[1];
     const buffer = Buffer.from(base64Data, 'base64');
 
-    // 1. Call Gemini Vision API with Fallback
-    const modelNames = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-pro-vision"];
     let lastError = "";
     let extractedText = "";
 
-    for (const modelName of modelNames) {
+    // 1. Try OpenRouter (Primary Scanning Method)
+    if (openRouterKey) {
       try {
-        console.log(`Trying model: ${modelName}`);
-        const apiUrl = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
-        
-        const geminiResponse = await fetch(apiUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        console.log("Trying OpenRouter (google/gemini-flash-1.5)...");
+        const orResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openRouterKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://github.com/AVENTRAGOD/Ai_scanner",
+            "X-Title": "AI Scanner",
+          },
           body: JSON.stringify({
-            contents: [{
-              parts: [
-                { text: systemPrompt },
-                { inline_data: { mime_type: "image/jpeg", data: base64Data } }
-              ]
-            }]
+            model: "google/gemini-flash-1.5",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  { type: "text", text: systemPrompt },
+                  { 
+                    type: "image_url", 
+                    image_url: { url: `data:image/jpeg;base64,${base64Data}` } 
+                  }
+                ]
+              }
+            ]
           })
         });
 
-        if (geminiResponse.ok) {
-          const result = await geminiResponse.json();
-          extractedText = result.candidates[0].content.parts[0].text;
-          console.log(`SUCCESS with model: ${modelName}`);
-          break;
+        if (orResponse.ok) {
+          const result = await orResponse.json();
+          extractedText = result.choices[0].message?.content || "";
+          if (extractedText) {
+            console.log("SUCCESS with OpenRouter");
+          } else {
+            console.warn("OpenRouter returned empty content");
+            lastError = "Empty response from OpenRouter";
+          }
         } else {
-          const err = await geminiResponse.json();
-          lastError = err.error?.message || "Unknown error";
-          console.warn(`Model ${modelName} failed:`, lastError);
+          const err = await orResponse.json();
+          lastError = err.error?.message || "OpenRouter API error";
+          console.warn("OpenRouter failed:", lastError);
         }
       } catch (e: any) {
         lastError = e.message;
-        console.warn(`Fetch failed for ${modelName}:`, lastError);
+        console.warn("OpenRouter fetch failed:", lastError);
       }
+    } else {
+      lastError = "OPENROUTER_API_KEY is missing in environment variables.";
     }
 
     if (!extractedText) {
-      throw new Error(`All Gemini models failed. Last error: ${lastError}. This account may have regional restrictions.`);
+      throw new Error(`Scanning failed via OpenRouter. Error: ${lastError}. Please ensure your OpenRouter key is valid and has credits.`);
     }
 
     let text = extractedText;
