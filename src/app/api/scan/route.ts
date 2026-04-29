@@ -1,8 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import { NextResponse } from "next/server";
 
-const geminiKey = process.env.GEMINI_API_KEY;
-const openRouterKey = process.env.OPENROUTER_API_KEY;
+const cfToken = process.env.CLOUDFLARE_API_TOKEN;
+const cfAccountId = process.env.CLOUDFLARE_ACCOUNT_ID;
 
 const systemPrompt = `You are an expert invoice and receipt data extractor. 
 Analyze the document image and extract ALL data fields you can find. 
@@ -29,27 +29,20 @@ export async function POST(req: Request) {
     let lastError = "";
     let extractedText = "";
 
-    // 1. Try Free OpenRouter Models (Requested by user)
-    if (openRouterKey) {
-      const freeModels = [
-        "qwen/qwen2.5-vl-72b-instruct:free",
-        "google/gemini-2.0-flash-exp:free",
-        "meta-llama/llama-3.2-11b-vision-instruct:free"
-      ];
-
-      for (const modelName of freeModels) {
-        try {
-          console.log(`Trying OpenRouter Free Model: ${modelName}...`);
-          const orResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    // 1. Cloudflare Workers AI (Sole Provider)
+    if (cfToken && cfAccountId && cfAccountId !== "YOUR_ACCOUNT_ID_HERE") {
+      try {
+        console.log("Trying Cloudflare Workers AI (Llama 3.2 Vision)...");
+        const cfResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/v1/chat/completions`,
+          {
             method: "POST",
             headers: {
-              "Authorization": `Bearer ${openRouterKey}`,
+              "Authorization": `Bearer ${cfToken}`,
               "Content-Type": "application/json",
-              "HTTP-Referer": "https://github.com/AVENTRAGOD/Ai_scanner",
-              "X-Title": "AI Scanner",
             },
             body: JSON.stringify({
-              model: modelName,
+              model: "@cf/meta/llama-3.2-11b-vision-instruct",
               messages: [
                 {
                   role: "user",
@@ -63,34 +56,32 @@ export async function POST(req: Request) {
                 }
               ]
             })
-          });
-
-          if (orResponse.ok) {
-            const result = await orResponse.json();
-            extractedText = result.choices[0].message?.content || "";
-            if (extractedText) {
-              console.log(`SUCCESS with OpenRouter Model: ${modelName}`);
-              break; // Stop if we got a result
-            } else {
-              console.warn(`Model ${modelName} returned empty content`);
-              lastError = `Empty response from ${modelName}`;
-            }
-          } else {
-            const err = await orResponse.json();
-            lastError = err.error?.message || `OpenRouter API error with ${modelName}`;
-            console.warn(`Model ${modelName} failed:`, lastError);
           }
-        } catch (e: any) {
-          lastError = e.message;
-          console.warn(`Fetch failed for ${modelName}:`, lastError);
+        );
+
+        if (cfResponse.ok) {
+          const result = await cfResponse.json();
+          extractedText = result.choices[0].message?.content || "";
+          if (extractedText) {
+            console.log("SUCCESS with Cloudflare Workers AI");
+          } else {
+            lastError = "Empty response from Cloudflare";
+          }
+        } else {
+          const err = await cfResponse.json();
+          lastError = err.error?.message || "Cloudflare API error";
+          console.warn("Cloudflare failed:", lastError);
         }
+      } catch (e: any) {
+        lastError = e.message;
+        console.warn("Cloudflare fetch failed:", lastError);
       }
     } else {
-      lastError = "OPENROUTER_API_KEY is missing in environment variables.";
+      lastError = "Cloudflare configuration missing. Please ensure CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN are set in .env";
     }
 
     if (!extractedText) {
-      throw new Error(`All free scanning models failed. Last error: ${lastError}. Please ensure your OpenRouter key is valid.`);
+      throw new Error(`Cloudflare Scanning Failed: ${lastError}`);
     }
 
     let text = extractedText;
