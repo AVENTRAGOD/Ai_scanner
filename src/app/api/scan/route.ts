@@ -29,59 +29,68 @@ export async function POST(req: Request) {
     let lastError = "";
     let extractedText = "";
 
-    // 1. Try OpenRouter (Primary Scanning Method)
+    // 1. Try Free OpenRouter Models (Requested by user)
     if (openRouterKey) {
-      try {
-        console.log("Trying OpenRouter (google/gemini-flash-1.5)...");
-        const orResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${openRouterKey}`,
-            "Content-Type": "application/json",
-            "HTTP-Referer": "https://github.com/AVENTRAGOD/Ai_scanner",
-            "X-Title": "AI Scanner",
-          },
-          body: JSON.stringify({
-            model: "google/gemini-flash-1.5",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: systemPrompt },
-                  { 
-                    type: "image_url", 
-                    image_url: { url: `data:image/jpeg;base64,${base64Data}` } 
-                  }
-                ]
-              }
-            ]
-          })
-        });
+      const freeModels = [
+        "qwen/qwen2.5-vl-72b-instruct:free",
+        "google/gemini-2.0-flash-exp:free",
+        "meta-llama/llama-3.2-11b-vision-instruct:free"
+      ];
 
-        if (orResponse.ok) {
-          const result = await orResponse.json();
-          extractedText = result.choices[0].message?.content || "";
-          if (extractedText) {
-            console.log("SUCCESS with OpenRouter");
+      for (const modelName of freeModels) {
+        try {
+          console.log(`Trying OpenRouter Free Model: ${modelName}...`);
+          const orResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${openRouterKey}`,
+              "Content-Type": "application/json",
+              "HTTP-Referer": "https://github.com/AVENTRAGOD/Ai_scanner",
+              "X-Title": "AI Scanner",
+            },
+            body: JSON.stringify({
+              model: modelName,
+              messages: [
+                {
+                  role: "user",
+                  content: [
+                    { type: "text", text: systemPrompt },
+                    { 
+                      type: "image_url", 
+                      image_url: { url: `data:image/jpeg;base64,${base64Data}` } 
+                    }
+                  ]
+                }
+              ]
+            })
+          });
+
+          if (orResponse.ok) {
+            const result = await orResponse.json();
+            extractedText = result.choices[0].message?.content || "";
+            if (extractedText) {
+              console.log(`SUCCESS with OpenRouter Model: ${modelName}`);
+              break; // Stop if we got a result
+            } else {
+              console.warn(`Model ${modelName} returned empty content`);
+              lastError = `Empty response from ${modelName}`;
+            }
           } else {
-            console.warn("OpenRouter returned empty content");
-            lastError = "Empty response from OpenRouter";
+            const err = await orResponse.json();
+            lastError = err.error?.message || `OpenRouter API error with ${modelName}`;
+            console.warn(`Model ${modelName} failed:`, lastError);
           }
-        } else {
-          const err = await orResponse.json();
-          lastError = err.error?.message || "OpenRouter API error";
-          console.warn("OpenRouter failed:", lastError);
+        } catch (e: any) {
+          lastError = e.message;
+          console.warn(`Fetch failed for ${modelName}:`, lastError);
         }
-      } catch (e: any) {
-        lastError = e.message;
-        console.warn("OpenRouter fetch failed:", lastError);
       }
     } else {
       lastError = "OPENROUTER_API_KEY is missing in environment variables.";
     }
 
     if (!extractedText) {
-      throw new Error(`Scanning failed via OpenRouter. Error: ${lastError}. Please ensure your OpenRouter key is valid and has credits.`);
+      throw new Error(`All free scanning models failed. Last error: ${lastError}. Please ensure your OpenRouter key is valid.`);
     }
 
     let text = extractedText;
